@@ -59,12 +59,17 @@ async function analyzeResume(req, res) {
       });
     }
 
-    if (!resumeText || resumeText.length < 20) {
+    let extractionWarning = null;
+    if (!resumeText) {
       fs.unlink(filePath, () => {});
       return res.status(400).json({
         error:
           "Could not read enough text from the file. Try another PDF/DOCX or ensure the document has selectable text.",
       });
+    }
+    if (resumeText.length < 20) {
+      extractionWarning =
+        "Extracted resume text is very short. The score may be less accurate (PDF may be scanned or text may not be selectable).";
     }
 
     const analysis = await analyzeResumeWithGemini(
@@ -84,6 +89,8 @@ async function analyzeResume(req, res) {
         resumeScore: analysis.resumeScore,
         detectedSkills: analysis.detectedSkills,
         missingSkills: analysis.missingSkills,
+        strengths: analysis.strengths,
+        improvements: analysis.improvements,
         suggestions: analysis.suggestions,
         summary: analysis.summary,
       });
@@ -94,9 +101,14 @@ async function analyzeResume(req, res) {
         "Analysis succeeded but could not be saved to the database. Check MongoDB connection and Atlas IP allowlist.";
     }
 
+    const combinedWarning =
+      extractionWarning && saveWarning
+        ? `${extractionWarning} ${saveWarning}`
+        : extractionWarning || saveWarning;
+
     return res.status(200).json({
       id: docId,
-      ...(saveWarning ? { warning: saveWarning } : {}),
+      ...(combinedWarning ? { warning: combinedWarning } : {}),
       ...analysis,
     });
   } catch (err) {

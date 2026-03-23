@@ -10,6 +10,8 @@ const resumeSchema = new mongoose.Schema(
     resumeScore: { type: Number },
     detectedSkills: [{ type: String }],
     missingSkills: [{ type: String }],
+    strengths: [{ type: String }],
+    improvements: [{ type: String }],
     suggestions: [{ type: String }],
     summary: { type: String, default: "" },
   },

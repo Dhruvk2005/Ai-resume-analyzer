@@ -322,6 +322,23 @@ export default function AnalyzerPage() {
                   </div>
                 </div>
 
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="rounded-2xl border border-emerald-500/20 bg-zinc-900/50 p-6 shadow-lg shadow-emerald-950/20 backdrop-blur-sm">
+                    <TagList
+                      title="Strengths"
+                      items={result.strengths}
+                      variant="good"
+                    />
+                  </div>
+                  <div className="rounded-2xl border border-amber-500/20 bg-zinc-900/50 p-6 shadow-lg shadow-amber-950/20 backdrop-blur-sm">
+                    <TagList
+                      title="Improvements"
+                      items={result.improvements}
+                      variant="warn"
+                    />
+                  </div>
+                </div>
+
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 backdrop-blur-md">
                   <h3 className="font-display text-sm font-semibold text-zinc-200">
                     Suggestions
