@@ -1,0 +1,20 @@
+{
+  "name": "ai-resume-analyzer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AI Resume Analyzer — React + Express + MongoDB + Gemini",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev -w resume-analyzer-backend\" \"npm run dev -w resume-analyzer-frontend\"",
+    "dev:backend": "npm run dev -w resume-analyzer-backend",
+    "dev:frontend": "npm run dev -w resume-analyzer-frontend",
+    "start": "npm run start -w resume-analyzer-backend",
+    "build": "npm run build -w resume-analyzer-frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
