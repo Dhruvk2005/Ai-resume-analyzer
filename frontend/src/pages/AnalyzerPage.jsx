@@ -6,6 +6,62 @@ import { useAuth } from "../context/AuthContext";
 
 const initialResult = null;
 
+function parseScoreValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const ratioMatch = trimmed.match(/(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+    if (ratioMatch) {
+      const num = Number(ratioMatch[1]);
+      const den = Number(ratioMatch[2]);
+      if (Number.isFinite(num) && Number.isFinite(den) && den > 0) {
+        return (num / den) * 100;
+      }
+    }
+
+    const numberMatch = trimmed.match(/-?\d+(?:\.\d+)?/);
+    if (numberMatch) {
+      const n = Number(numberMatch[0]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+
+  return null;
+}
+
+function resolveResumeScore(data) {
+  const candidates = [
+    data?.resumeScore,
+    data?.score,
+    data?.overallScore,
+    data?.fitScore,
+    data?.matchScore,
+    data?.analysis?.resumeScore,
+    data?.analysis?.score,
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = parseScoreValue(candidate);
+    if (parsed !== null) {
+      return Math.min(100, Math.max(0, parsed));
+    }
+  }
+
+  return 0;
+}
+
+function normalizeApiResult(data) {
+  return {
+    ...data,
+    resumeScore: resolveResumeScore(data),
+  };
+}
+
 function ScoreRing({ score }) {
   const pct = Math.min(100, Math.max(0, Number(score) || 0));
   const circumference = 2 * Math.PI * 52;
@@ -148,7 +204,7 @@ export default function AnalyzerPage() {
         throw new Error(detail);
       }
 
-      setResult(data);
+      setResult(normalizeApiResult(data));
     } catch (err) {
       const msg = err?.message || "Something went wrong.";
       const isNetwork =

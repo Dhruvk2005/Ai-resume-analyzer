@@ -68,12 +68,59 @@ function tryParseAnalysisJson(text) {
   }
 }
 
+function parseScoreValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    // Supports values like "82", "82%", "82/100", "score: 82"
+    const ratioMatch = trimmed.match(/(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+    if (ratioMatch) {
+      const num = Number(ratioMatch[1]);
+      const den = Number(ratioMatch[2]);
+      if (Number.isFinite(num) && Number.isFinite(den) && den > 0) {
+        return (num / den) * 100;
+      }
+    }
+
+    const numberMatch = trimmed.match(/-?\d+(?:\.\d+)?/);
+    if (numberMatch) {
+      const n = Number(numberMatch[0]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+
+  return null;
+}
+
+function resolveResumeScore(raw) {
+  const scoreCandidates = [
+    raw?.resumeScore,
+    raw?.score,
+    raw?.overallScore,
+    raw?.fitScore,
+    raw?.matchScore,
+    raw?.analysis?.resumeScore,
+    raw?.analysis?.score,
+  ];
+
+  for (const value of scoreCandidates) {
+    const parsed = parseScoreValue(value);
+    if (parsed !== null) {
+      return Math.min(100, Math.max(0, parsed));
+    }
+  }
+
+  return 0;
+}
+
 function normalizeAnalysis(raw) {
   return {
-    resumeScore: Math.min(
-      100,
-      Math.max(0, Number(raw.resumeScore) || 0)
-    ),
+    resumeScore: resolveResumeScore(raw),
     detectedSkills: Array.isArray(raw.detectedSkills)
       ? raw.detectedSkills.map(String)
       : [],
@@ -135,13 +182,26 @@ ${jobDescription || "(empty)"}`;
 }
 
 function extractResumeScoreFromText(text) {
-  const m =
-    /"resumeScore"\s*:\s*([0-9]{1,3})(?:\D|$)/.exec(text) ||
-    /resumeScore\s*[:=]\s*([0-9]{1,3})(?:\D|$)/i.exec(text);
-  if (!m) return null;
-  const n = Number(m[1]);
-  if (!Number.isFinite(n)) return null;
-  return Math.min(100, Math.max(0, n));
+  const keys = [
+    "resumeScore",
+    "score",
+    "overallScore",
+    "fitScore",
+    "matchScore",
+  ];
+  for (const key of keys) {
+    const keyPattern = new RegExp(
+      `"?${key}"?\\s*[:=]\\s*([^,\\n}]+)`,
+      "i"
+    );
+    const m = keyPattern.exec(text || "");
+    if (!m) continue;
+    const parsed = parseScoreValue(m[1]);
+    if (parsed !== null) {
+      return Math.min(100, Math.max(0, parsed));
+    }
+  }
+  return null;
 }
 
 /**
@@ -246,20 +306,15 @@ async function analyzeResumeWithGemini(resumeText, jobDescription) {
   try {
     parsed = tryParseAnalysisJson(rawText);
   } catch {
-    try {
-      rawText = await runOnce(false);
-      parsed = tryParseAnalysisJson(rawText);
-    } catch {
-      // If the model output isn't valid JSON, still try to salvage the score
-      // so the UI can show something useful rather than failing completely.
-      const salvagedScore = extractResumeScoreFromText(rawText);
-      if (salvagedScore !== null) {
-        parsed = { resumeScore: salvagedScore };
-      } else {
-        throw new Error(
-          "Gemini did not return valid JSON. Try again or set GEMINI_MODEL to another Flash model."
-        );
-      }
+    // If the model output isn't valid JSON, still try to salvage the score
+    // so the UI can show something useful rather than failing completely.
+    const salvagedScore = extractResumeScoreFromText(rawText);
+    if (salvagedScore !== null) {
+      parsed = { resumeScore: salvagedScore };
+    } else {
+      throw new Error(
+        "Gemini did not return valid JSON. Try again or set GEMINI_MODEL to another Flash model."
+      );
     }
   }
 
